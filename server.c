@@ -195,10 +195,18 @@ void petition_handler(int socket) {
         atomic_store(&thread_return_value, 2);
         return;
     } else if (strcmp(operation, "set") == 0) {
-        // receive tuple items from socket
+        // receive tuple key from socket
         int key;
         recv(socket, &key, sizeof(int), 0);
-        if (exist)
+        // if key doesn't exist, raise error
+        if (exists(key) == 0) {
+            atomic_store(&thread_return_value, -1);
+            send(client_socket, "error", sizeof("error"), 0);
+            return;
+        }
+        send(client_socket, "noerror", sizeof("noerror"), 0);
+
+        // receive tuple values from socket
         char value1[256];
         recv(socket, value1, sizeof(value1), 0);
         int value2;
@@ -225,12 +233,15 @@ void petition_handler(int socket) {
         int key;
         recv(socket, &key, sizeof(int), 0);
         struct tuple temp_tuple;
+
+        // if error getting value, raise error
         if (get_value(key, temp_tuple.value1, &temp_tuple.value2, temp_tuple.value3) < 0) {
             atomic_store(&thread_return_value, -1);
             send(client_socket, "error", sizeof("error"), 0);
             return;
         }
 
+        // send tuple item to socket
         send(client_socket, "noerror", sizeof("noerror"), 0);
         send(client_socket, temp_tuple.value1, sizeof(temp_tuple.value1), 0);
         send(client_socket, &temp_tuple.N_value2, sizeof(temp_tuple.N_value2), 0);
@@ -238,7 +249,7 @@ void petition_handler(int socket) {
 
         atomic_store(&thread_return_value, 0);
         printf("Value retrieved correctly\n");
-    } else if (strcmp(operation, "set") == 0) {
+    } else if (strcmp(operation, "delete") == 0) {
         int key;
         recv(socket, &key, sizeof(int), 0);
         if (exists(key) == 0) {
@@ -246,103 +257,46 @@ void petition_handler(int socket) {
             send(client_socket, "error", sizeof("error"), 0);
             return;
         }
-        send(client_socket, "noerror", sizeof("noerror"), 0);
-
-        struct tuple temp_tuple;
-        recv(client_socket, temp_tuple.value1, sizeof(temp_tuple.value1), 0);
-        recv(client_socket, &temp_tuple.value2, sizeof(int));
-        recv(client_socket, &temp_tuple.value3, sizeof(double));
-        if (set_value(temp_tuple) < 0) {
+        if (delete_key(key) < 0) {
             atomic_store(&thread_return_value, -1);
             send(client_socket, "error", sizeof("error"), 0);
             return;
         }
-
-        send(client_socket, "noerror", sizeof("noerror"), 0);
         atomic_store(&thread_return_value, 0);
-        printf("Value set correctly\n");
-    }
-
-
-
-    // unchanged code
-    else if (strcmp(p->operation, "get") == 0) {
-        // operation GET
+        send(client_socket, "noerror", sizeof("noerror"), 0);
+    } else if (strcmp(operation, "modify") == 0) {
         struct tuple temp_tuple;
-        struct answer current_answer;
-        if (get_value(p->operated_tuple.key, temp_tuple.value1, &temp_tuple.N_value2, temp_tuple.V_value2) == -1) {
-            strcpy(current_answer.error_code, "error");
-            if (mq_send(client_queue, (char *)&current_answer, sizeof(current_answer), 0) == -1) {
-                perror("mq_send");
-            }
+        recv(socket, &temp_tuple.key, sizeof(int), 0);
+        if (exists(temp_tuple.key) == 0) {
             atomic_store(&thread_return_value, -1);
+            send(client_socket, "error", sizeof("error"), 0);
             return;
         }
-        current_answer.return_tuple = temp_tuple;
-        strcpy(current_answer.error_code, "noerror");
-        if (mq_send(client_queue, (char *)&current_answer, sizeof(current_answer), 0) == -1) {
-            perror("mq_send");
+        recv(socket, temp_tuple.value1, sizeof(temp_tuple.value1), 0);
+        recv(socket, &temp_tuple.value2, sizeof(int), 0);
+        recv(socket, &temp_tuple.value3, sizeof(double), 0);
+        if (modify_value(temp_tuple.key, temp_tuple.value1, temp_tuple.value2, temp_tuple.value3) < 0) {
             atomic_store(&thread_return_value, -1);
+            send(client_socket, "error", sizeof("error"), 0);
             return;
         }
-    } else if (strcmp(p->operation, "modify") == 0) {
-        // operation MODIFY
-        struct answer current_answer;
-        if (modify_value(p->operated_tuple.key, p->operated_tuple.value1, p->operated_tuple.N_value2, p->operated_tuple.V_value2) == -1) {
-            perror("error modifying value");
-            strcpy(current_answer.error_code, "error");
-            if (mq_send(client_queue, (char *)&current_answer, sizeof(current_answer), 0) == -1) {
-                perror("mq_send");
-            }
-            atomic_store(&thread_return_value, -1);
-            return;
-        }
-        strcpy(current_answer.error_code, "noerror");
-        if (mq_send(client_queue, (char *)&current_answer, sizeof(current_answer), 0) == -1) {
-            perror("mq_send");
-            atomic_store(&thread_return_value, -1);
-            return;
-        }
-    } else if (strcmp(p->operation, "delete") == 0) {
-        // operation DELETE
-        struct answer current_answer;
-        if (delete_key(p->operated_tuple.key) == -1) {
-            perror("error in deleting value");
-            strcpy(current_answer.error_code, "error");
-            if (mq_send(client_queue, (char *)&current_answer, sizeof(current_answer), 0) == -1) {
-                perror("mq_send");
-            }
-            atomic_store(&thread_return_value, -1);
-            return;
-        }
-        strcpy(current_answer.error_code, "noerror");
-        if (mq_send(client_queue, (char *)&current_answer, sizeof(current_answer), 0) == -1) {
-            perror("mq_send");
-            atomic_store(&thread_return_value, -1);
-            return;
-        }
-    } else if (strcmp(p->operation, "exist") == 0) {
-        // operation EXIST
-        int key_exists = exists(p->operated_tuple.key);
-        struct answer current_answer;
-        if (key_exists == 1) 
-            strcpy(current_answer.error_code, "exist");
-        else if (key_exists == 0) {
-            strcpy(current_answer.error_code, "noexist");
+        atomic_store(&thread_return_value, 0);
+        send(client_socket, "noerror", sizeof("noerror"), 0);
+    } else if (strcmp(operation, "exist") == 0) {
+        int key = recv(socket, &key, sizeof(key), 0);
+        int key_exists = exists(key);
+        atomic_load(&thread_return_value, 0);
+        if (key_exists == 1) {
+            send(client_socket, "exist", sizeof("exist"), 0);
+        } else if (key_exists == 0) {
+            send(client_socket, "noexist", sizeof("noexist"), 0);
         } else if (key_exists == -1) {
             perror("error checking if key exists");
-            strcpy(current_answer.error_code, "error");
+            atomic_load(&thread_return_value, -1);
+            send(client_socket, "error", sizeof("error"), 0);
         }
-        if (mq_send(client_queue, (char *)&current_answer, sizeof(current_answer), 0) == -1) {
-            perror("mq_send");
-            thread_return_value = 1;
-            return;
-        }
+        return;
     }
-    mq_close(client_queue);
-    atomic_store(&thread_return_value, 0);
-    return;
-}
 
 int main () {
     init();
