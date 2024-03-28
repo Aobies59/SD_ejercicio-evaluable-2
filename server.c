@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <socket.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdatomic.h>
@@ -70,7 +73,7 @@ int set_value(struct tuple given_tuple) {
         fclose(tuples_file);
         return -1;
     }
-    fprintf(tuples_file, "%d,%s,%d, %d\n", given_tuple.key, given_tuple.value1, given_tuple.value2, given_tuple.value3);
+    fprintf(tuples_file, "%d,%s,%d,%f\n", given_tuple.key, given_tuple.value1, given_tuple.value2, given_tuple.value3);
     fclose(tuples_file);
     pthread_mutex_unlock(&file_lock);
     return 0;
@@ -94,7 +97,7 @@ int get_value(int key, char *value1, int *value2, double *value3) {
         char str_value[MAXLINE];
         int temp_key;
         sscanf(line, "%d, %s", &temp_key, str_value);
-        if (temp_tuple.key == key) {
+        if (temp_key == key) {
             strcpy(value1, strtok(str_value, ","));
             *value2 = atoi(strtok(NULL, ","));
             *value3 = atoi(strtok(NULL, ","));
@@ -111,7 +114,7 @@ int get_value(int key, char *value1, int *value2, double *value3) {
     return -1;
 }
 
-int modify_value(int key, char *value1, int *value2, double *value3) {
+int modify_value(int key, char *value1, int value2, double value3) {
     const long MAXLINE = 4096;  // big enough number that endofline will occur before end of buffer
     pthread_mutex_lock(&file_lock);
     FILE *tuples_file = fopen(tuples_filename, "r");
@@ -130,7 +133,7 @@ int modify_value(int key, char *value1, int *value2, double *value3) {
             fputs(line, temp_tuples_file);
         } else {
             // write the new tuple to the temp file
-            fprintf(temp_tuples_file, "%d,%s,%d, %d\n", key, value1, value2, value3);
+            fprintf(temp_tuples_file, "%d,%s,%d,%f\n", key, value1, value2,value3);
         }
         line = fgets(line, MAXLINE, tuples_file);
     }
@@ -179,7 +182,7 @@ void petition_handler(int socket) {
     if (socket_copied == true) {
         return;
     }
-    pthread_mutex_lock(&message_lock);
+    pthread_mutex_lock(&socket_lock);
     // copy socket into local variable
     int client_socket = socket;
     socket_copied = true;
@@ -220,7 +223,7 @@ void petition_handler(int socket) {
         temp_tuple.value2 = value2;
         temp_tuple.value3 = value3;
 
-        if (set_value(key, value1, value2, value3) < 0) {
+        if (set_value(temp_tuple) < 0) {
             atomic_store(&thread_return_value, -1);
             send(client_socket, "error", sizeof("error"), 0);
             return;
@@ -235,7 +238,7 @@ void petition_handler(int socket) {
         struct tuple temp_tuple;
 
         // if error getting value, raise error
-        if (get_value(key, temp_tuple.value1, &temp_tuple.value2, temp_tuple.value3) < 0) {
+        if (get_value(key, temp_tuple.value1, &temp_tuple.value2, &temp_tuple.value3) < 0) {
             atomic_store(&thread_return_value, -1);
             send(client_socket, "error", sizeof("error"), 0);
             return;
@@ -244,8 +247,8 @@ void petition_handler(int socket) {
         // send tuple item to socket
         send(client_socket, "noerror", sizeof("noerror"), 0);
         send(client_socket, temp_tuple.value1, sizeof(temp_tuple.value1), 0);
-        send(client_socket, &temp_tuple.N_value2, sizeof(temp_tuple.N_value2), 0);
-        send(client_socket, &temp_tuple.V_value2, sizeof(temp_tuple.V_value2), 0);
+        send(client_socket, &temp_tuple.value2, sizeof(temp_tuple.value2), 0);
+        send(client_socket, &temp_tuple.value3, sizeof(temp_tuple.value3), 0);
 
         atomic_store(&thread_return_value, 0);
         printf("Value retrieved correctly\n");
@@ -285,18 +288,19 @@ void petition_handler(int socket) {
     } else if (strcmp(operation, "exist") == 0) {
         int key = recv(socket, &key, sizeof(key), 0);
         int key_exists = exists(key);
-        atomic_load(&thread_return_value, 0);
+        atomic_store(&thread_return_value, 0);
         if (key_exists == 1) {
             send(client_socket, "exist", sizeof("exist"), 0);
         } else if (key_exists == 0) {
             send(client_socket, "noexist", sizeof("noexist"), 0);
         } else if (key_exists == -1) {
             perror("error checking if key exists");
-            atomic_load(&thread_return_value, -1);
+            atomic_store(&thread_return_value, -1);
             send(client_socket, "error", sizeof("error"), 0);
         }
         return;
     }
+}
 
 int main () {
     init();
@@ -307,22 +311,21 @@ int main () {
     }
 
     struct sockaddr_in server;
-    bzero((char *)&server, sizeof(server));
+    bzero((char *)&server, sizeof(struct sockaddr_in));
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr("localhost");
     server.sin_port = htons(5000);
-    if (bind(server_socket, (struct sockaddr *)&server, sizeof(server)) < 0) {
+    if (bind(server_socket, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
         perror("bind");
         exit(1);
     }
 
-    pthread_mutex_init(&message_lock, NULL);
+    pthread_mutex_init(&socket_lock, NULL);
     pthread_mutex_init(&file_lock, NULL);
     pthread_attr_t threads_attr;  // threads attributes
     pthread_attr_init(&threads_attr);
     pthread_attr_setdetachstate(&threads_attr, PTHREAD_CREATE_JOINABLE);  // dependent threads (to properly get thread_return_value)
     pthread_t thread;  // thread for handling petitions
-    struct petition current_petition;
 
     while (1) {
         printf("\nWaiting for a petition...\n");
@@ -369,7 +372,7 @@ int main () {
     close(server_socket);
 
     // destroy mutex and attributes
-    pthread_mutex_destroy(&message_lock);
+    pthread_mutex_destroy(&socket_lock);
     pthread_attr_destroy(&threads_attr);
     remove(tuples_filename);
 
