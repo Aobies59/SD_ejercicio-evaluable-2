@@ -135,8 +135,13 @@ int main () {
     signal(SIGINT, handle_sigint);
 
     printf("Welcome to the tuple management system.\n");
-
+    if (init() < 0) {
+        exit(-1);
+    }
     while (1) {
+        if (connect_to_server() < 0) {
+            exit(-1);
+        }
         char operation[10];
         do {
             if (init() < 0) {

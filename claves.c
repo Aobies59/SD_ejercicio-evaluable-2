@@ -13,12 +13,14 @@ int init () {
     if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("socket");
     }
+    return 0;
+}
 
-    // connect to server
-    if (connect(client_socket, (struct sockaddr *)&server, sizeof(server)) == -1) {
+static int connect_to_server() {
+    if (connect(client_socket, (struct sockaddr *)&server, sizeof(server)) < 0) {
         perror("connect");
         return -1;
-    };
+    }
     return 0;
 }
 
