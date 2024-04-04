@@ -100,6 +100,17 @@ int exist(int key);
  * @retval 0 en caso de exito.
  * @retval -1 en caso de error.
  */
+int create_socket();
+
+/**
+ * @brief Este servicio crea el socket del cliente y conecta con el servidor
+ * 
+ * @return int La función devuelve 0 en caso de exito y -1 en caso de error.
+ * @retval 0 en caso de exito.
+ * @retval -1 en caso de error.
+ */
+int create_socket();
+
 int close_server();
 
 #endif

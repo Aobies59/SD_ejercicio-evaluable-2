@@ -13,12 +13,15 @@ char* tuples_filename = "tuples.csv";
 atomic_int thread_return_value;
 
 static int init() {
+    pthread_mutex_lock(&file_lock);
     FILE *file = fopen(tuples_filename, "w");
     if (file == NULL) {
         fclose(file);
+        pthread_mutex_unlock(&file_lock);
         return -1;
     }
     fclose(file);
+    pthread_mutex_unlock(&file_lock);
     return 0;
 }
 
@@ -193,6 +196,7 @@ void petition_handler(void *socket) {
     printf("Handling operation %s\n", operation);
 
     if (strcmp(operation, "exit") == 0) {
+        printf("Exit operation received from client, closing server\n");
         atomic_store(&thread_return_value, 2);
         return;
     } else if (strcmp(operation, "set") == 0) {
@@ -307,6 +311,11 @@ void petition_handler(void *socket) {
             send(client_socket, "error", sizeof("error"), 0);
         }
         return;
+    } else if (strcmp(operation, "init") == 0){
+        if (init() < 0){
+            fprintf(stderr, "Error: error initiating tuples functionality\n");
+            atomic_store(&thread_return_value, 2);  // close the server
+        }
     } else {
         fprintf(stderr, "Error: received wrong operation\n");
         atomic_store(&thread_return_value, -1);
@@ -314,7 +323,14 @@ void petition_handler(void *socket) {
 }
 
 int main () {
-    init();
+    // create the tuples file if it does not exist
+    FILE* tuples_file = fopen(tuples_filename, "r");
+    if (tuples_file) {
+        fclose(tuples_file);
+    } else {
+        tuples_file = fopen(tuples_filename, "w");
+        fclose(tuples_file);
+    }
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket < 0) {
         perror("socket");
@@ -344,20 +360,20 @@ int main () {
     while (1) {
         printf("\nWaiting for a petition...\n");
         if (listen(server_socket, 5) < 0) {
-        perror("listen");
-        exit(1);
+            perror("listen");
+            exit(-1);
         }
 
         int client_socket = accept(server_socket, NULL, NULL);
         if (client_socket < 0) {
             perror("accept");
-            exit(1);
+            exit(-1);
         }
 
         pthread_mutex_lock(&socket_lock);
         if (pthread_create(&thread, &threads_attr, (void *) petition_handler, (void *) &client_socket) < 0) {
             perror("pthread_create");
-            exit(1);
+            exit(-1);
         }
         
         socket_copied = false;
@@ -368,12 +384,11 @@ int main () {
 
         if (pthread_join(thread, NULL) < 0) {
             perror("pthread_join");
-            exit(1);
+            exit(-1);
         }
         
         int return_value = atomic_load(&thread_return_value);
         if (return_value == 2) {
-            printf("Exit operation received from client, terminating server\n");
             break;
         } else if (return_value < 0) {
             fprintf(stderr, "Error in last operation\n");
@@ -388,7 +403,6 @@ int main () {
     // destroy mutex and attributes
     pthread_mutex_destroy(&socket_lock);
     pthread_attr_destroy(&threads_attr);
-    remove(tuples_filename);
 
     exit(0);
 }

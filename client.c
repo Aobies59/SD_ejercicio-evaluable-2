@@ -135,18 +135,18 @@ int main () {
     signal(SIGINT, handle_sigint);
 
     printf("Welcome to the tuple management system.\n");
+    if (create_socket() < 0) {
+        exit(-1);
+    }
     if (init() < 0) {
         exit(-1);
     }
     while (1) {
-        if (connect_to_server() < 0) {
+        if (create_socket() < 0) {
             exit(-1);
         }
         char operation[10];
         do {
-            if (init() < 0) {
-                exit(-1);
-            }
             printf("\nPossible operations are: set, get, delete, modify, exist and exit.\n");
             printf("Input operation: ");
             scanf("%s", operation);

@@ -3,22 +3,26 @@
 #include <netinet/in.h>
 
 int client_socket;
+struct sockaddr_in server;
 
-int init () {
-    struct sockaddr_in server;
+int create_socket () {
     bzero((char *)&server, sizeof(server));
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr("127.0.0.0");
     server.sin_port = htons(PORT);
     if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("socket");
+        perror("create socket");
+    }
+    if (connect(client_socket, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        perror("connect");
+        return -1;
     }
     return 0;
 }
 
-static int connect_to_server() {
-    if (connect(client_socket, (struct sockaddr *)&server, sizeof(server)) < 0) {
-        perror("connect");
+int init() {
+    if (send(client_socket, "init", sizeof("init"), 0) < 0) {
+        perror("send");
         return -1;
     }
     return 0;
