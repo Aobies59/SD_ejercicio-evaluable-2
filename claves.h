@@ -28,7 +28,7 @@ int init();
  * @retval 0 si se insertó con éxito.
  * @retval -1 en caso de error.
  */
-int set_value(int key, char *value1, int N_value2, double *V_value2);
+int set_value(int key, char *value1, int value2, double value3);
 
 /**
  * @brief Este servicio permite obtener los valores asociados a la clave key. La cadena de caracteres
@@ -48,7 +48,7 @@ int set_value(int key, char *value1, int N_value2, double *V_value2);
  * @retval 0 en caso de éxito.
  * @retval -1 en caso de error.
  */
-int get_value(int key, char *value1, int *N_value2, double *V_value2);
+int get_value(int key, char *value1, int *value2, double *value3);
 
 /**
  * @brief Este servicio permite modificar los valores asociados a la clave key. La función devuelve 0 en caso
@@ -65,7 +65,7 @@ int get_value(int key, char *value1, int *N_value2, double *V_value2);
  * @retval 0 si se modificó con éxito.
  * @retval -1 en caso de error.
  */
-int modify_value(int key, char *value1, int N_value2, double *V_value2);
+int modify_value(int key, char *value1, int value2, double value3);
 
 /**
  * @brief Este servicio permite borrar el elemento cuya clave es key. La

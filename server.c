@@ -1,11 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <pthread.h>
-#include <unistd.h>
 #include <arpa/inet.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
-#include <string.h>
 #include <stdbool.h>
 #include <stdatomic.h>
 #include "utils.h"
@@ -62,6 +57,7 @@ int exists(int key) {
 int set_value(struct tuple given_tuple) {
     // check if key exists
     if (exists(given_tuple.key) == 1) {
+        printf("Error: key already exists\n");
         return -1;
     }
 
@@ -73,7 +69,7 @@ int set_value(struct tuple given_tuple) {
         fclose(tuples_file);
         return -1;
     }
-    fprintf(tuples_file, "%d,%s,%d,%f\n", given_tuple.key, given_tuple.value1, given_tuple.value2, given_tuple.value3);
+    fprintf(tuples_file, "%d,%s,%d,%lf\n", given_tuple.key, given_tuple.value1, given_tuple.value2, given_tuple.value3);
     fclose(tuples_file);
     pthread_mutex_unlock(&file_lock);
     return 0;
@@ -96,7 +92,7 @@ int get_value(int key, char *value1, int *value2, double *value3) {
     while (line != NULL) {
         char str_value[MAXLINE];
         int temp_key;
-        sscanf(line, "%d, %s", &temp_key, str_value);
+        sscanf(line, "%d,%s", &temp_key, str_value);
         if (temp_key == key) {
             strcpy(value1, strtok(str_value, ","));
             *value2 = atoi(strtok(NULL, ","));
@@ -178,21 +174,23 @@ int delete_key(int key) {
     return 0;
 }
 
-void petition_handler(int socket) {
+void petition_handler(void *socket) {
+    printf("Received a petition\n");
     if (socket_copied == true) {
         return;
     }
     pthread_mutex_lock(&socket_lock);
     // copy socket into local variable
-    int client_socket = socket;
+    int *client_socket_pointer = (int *)socket;
+    int client_socket = *client_socket_pointer;
     socket_copied = true;
     pthread_cond_signal(&socket_cond);
     pthread_mutex_unlock(&socket_lock);
 
     // receive operation from socket
     char operation[10];
-    recv(socket, operation, sizeof(operation), 0);
-    printf("Received a petition: %s\n", operation);
+    recv(client_socket, operation, sizeof(operation), 0);
+    printf("Handling operation %s\n", operation);
 
     if (strcmp(operation, "exit") == 0) {
         atomic_store(&thread_return_value, 2);
@@ -200,93 +198,98 @@ void petition_handler(int socket) {
     } else if (strcmp(operation, "set") == 0) {
         // receive tuple key from socket
         int key;
-        recv(socket, &key, sizeof(int), 0);
-        // if key doesn't exist, raise error
-        if (exists(key) == 0) {
-            atomic_store(&thread_return_value, -1);
-            send(client_socket, "error", sizeof("error"), 0);
-            return;
-        }
-        send(client_socket, "noerror", sizeof("noerror"), 0);
+        recv(client_socket, &key, sizeof(int), 0);
 
         // receive tuple values from socket
-        char value1[256];
-        recv(socket, value1, sizeof(value1), 0);
-        int value2;
-        recv(socket, &value2, sizeof(int), 0);
-        double value3;
-        recv(socket, &value3, sizeof(double), 0);
-        
         struct tuple temp_tuple;
         temp_tuple.key = key;
-        strcpy(temp_tuple.value1, value1);
-        temp_tuple.value2 = value2;
-        temp_tuple.value3 = value3;
+
+        socket_recv(client_socket, temp_tuple.value1, &temp_tuple.value2, &temp_tuple.value3);
 
         if (set_value(temp_tuple) < 0) {
             atomic_store(&thread_return_value, -1);
+            sleep(0.1);
             send(client_socket, "error", sizeof("error"), 0);
-            return;
-        };
-        atomic_store(&thread_return_value, 0);
-        send(client_socket, "noerror", sizeof("noerror"), 0);
-        printf("Value set correctly\n");
+        } else {
+            atomic_store(&thread_return_value, 0);
+            sleep(0.1);
+            send(client_socket, "noerror", sizeof("noerror"), 0);
+            printf("Value set correctly\n");
+        }
+        return;
     } else if (strcmp(operation, "get") == 0) {
         // receive key from socket
         int key;
-        recv(socket, &key, sizeof(int), 0);
-        struct tuple temp_tuple;
+        recv(client_socket, &key, sizeof(int), 0);
+        char value1[256];
+        int value2;
+        double value3;
 
         // if error getting value, raise error
-        if (get_value(key, temp_tuple.value1, &temp_tuple.value2, &temp_tuple.value3) < 0) {
+        if (get_value(key, value1, &value2, &value3) < 0) {
             atomic_store(&thread_return_value, -1);
             send(client_socket, "error", sizeof("error"), 0);
             return;
         }
+        sleep(0.1);
+        send(client_socket, "noerror", sizeof("noerror"), 0);
 
         // send tuple item to socket
-        send(client_socket, "noerror", sizeof("noerror"), 0);
-        send(client_socket, temp_tuple.value1, sizeof(temp_tuple.value1), 0);
-        send(client_socket, &temp_tuple.value2, sizeof(temp_tuple.value2), 0);
-        send(client_socket, &temp_tuple.value3, sizeof(temp_tuple.value3), 0);
+        socket_send(client_socket, value1, &value2, &value3);
 
         atomic_store(&thread_return_value, 0);
         printf("Value retrieved correctly\n");
     } else if (strcmp(operation, "delete") == 0) {
         int key;
-        recv(socket, &key, sizeof(int), 0);
+        recv(client_socket, &key, sizeof(int), 0);
         if (exists(key) == 0) {
             atomic_store(&thread_return_value, -1);
+            sleep(0.1);
             send(client_socket, "error", sizeof("error"), 0);
             return;
         }
         if (delete_key(key) < 0) {
             atomic_store(&thread_return_value, -1);
+            sleep(0.1);
             send(client_socket, "error", sizeof("error"), 0);
             return;
         }
-        atomic_store(&thread_return_value, 0);
         send(client_socket, "noerror", sizeof("noerror"), 0);
+        atomic_store(&thread_return_value, 0);
+        return;
     } else if (strcmp(operation, "modify") == 0) {
-        struct tuple temp_tuple;
-        recv(socket, &temp_tuple.key, sizeof(int), 0);
-        if (exists(temp_tuple.key) == 0) {
+        // receive key and check if it exists
+        int key;
+        recv(client_socket, &key, sizeof(int), 0);
+        if (exists(key) == 0) {
             atomic_store(&thread_return_value, -1);
             send(client_socket, "error", sizeof("error"), 0);
             return;
         }
-        recv(socket, temp_tuple.value1, sizeof(temp_tuple.value1), 0);
-        recv(socket, &temp_tuple.value2, sizeof(int), 0);
-        recv(socket, &temp_tuple.value3, sizeof(double), 0);
-        if (modify_value(temp_tuple.key, temp_tuple.value1, temp_tuple.value2, temp_tuple.value3) < 0) {
-            atomic_store(&thread_return_value, -1);
-            send(client_socket, "error", sizeof("error"), 0);
-            return;
-        }
-        atomic_store(&thread_return_value, 0);
         send(client_socket, "noerror", sizeof("noerror"), 0);
+        
+        // receive new tuple items from client
+        char value1[256];
+        int value2;
+        double value3;
+        socket_recv(client_socket, value1, &value2, &value3);
+
+        // attempt to modify tuple
+        if (modify_value(key, value1, value2, value3) < 0) {
+            atomic_store(&thread_return_value, -1);
+            send(client_socket, "error", sizeof("error"), 0);
+        } else{
+            atomic_store(&thread_return_value, 0);
+            send(client_socket, "noerror", sizeof("noerror"), 0);
+        }
+
+        return;
+        
     } else if (strcmp(operation, "exist") == 0) {
-        int key = recv(socket, &key, sizeof(key), 0);
+        int key;
+        sleep(0.1);
+        recv(client_socket, &key, sizeof(key), 0);
+        printf("Received key %d\n", key);   
         int key_exists = exists(key);
         atomic_store(&thread_return_value, 0);
         if (key_exists == 1) {
@@ -299,6 +302,9 @@ void petition_handler(int socket) {
             send(client_socket, "error", sizeof("error"), 0);
         }
         return;
+    } else {
+        printf("Error: received wrong operation\n");
+        atomic_store(&thread_return_value, -1);
     }
 }
 
@@ -310,11 +316,14 @@ int main () {
         exit(1);
     }
 
+    int val = 1;
+    if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&val, sizeof(int)));
+
     struct sockaddr_in server;
     bzero((char *)&server, sizeof(struct sockaddr_in));
     server.sin_family = AF_INET;
-    server.sin_addr.s_addr = inet_addr("localhost");
-    server.sin_port = htons(5000);
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(PORT);
     if (bind(server_socket, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0) {
         perror("bind");
         exit(1);
