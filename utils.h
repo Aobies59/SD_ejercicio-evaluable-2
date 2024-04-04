@@ -29,8 +29,6 @@ struct answer {
 int socket_send(int socket, const char *value1, const int *value2, const double *value3) {
     char buffer[BUFSIZE];
     snprintf(buffer, BUFSIZE, "%d, %lf, %s", *value2, *value3, value1);
-    printf("Sending buffer:  %s...\n", buffer);
-    sleep(0.1);
     if (send(socket, buffer, BUFSIZE, 0) < 0) {
         return -1;
     }
@@ -39,13 +37,11 @@ int socket_send(int socket, const char *value1, const int *value2, const double 
 
 int socket_recv(int socket, char value1[256], int *value2, double *value3) {
     char buffer[BUFSIZE];
-    sleep(0.1);
     int bytes_received = recv(socket, buffer, BUFSIZE, 0);
     if (bytes_received <= 0) {
-        printf("Error: sending side closed connection\n");
+        fprintf(stderr, "Error: sending side closed connection\n");
         return -1;
     }
-    printf("Received buffer: %s\n", buffer);
 
     buffer[bytes_received] = '\0';
     sscanf(buffer, "%d, %lf, %s", value2, value3, value1);

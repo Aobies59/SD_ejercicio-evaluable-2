@@ -57,7 +57,7 @@ int exists(int key) {
 int set_value(struct tuple given_tuple) {
     // check if key exists
     if (exists(given_tuple.key) == 1) {
-        printf("Error: key already exists\n");
+        fprintf(stderr, "Error: key already exists\n");
         return -1;
     }
 
@@ -206,13 +206,14 @@ void petition_handler(void *socket) {
 
         socket_recv(client_socket, temp_tuple.value1, &temp_tuple.value2, &temp_tuple.value3);
 
-        if (set_value(temp_tuple) < 0) {
+        if (exists(key) == 1) {
+            atomic_store(&thread_return_value, 0);
+            send(client_socket, "exist", sizeof("exist"), 0);
+        } else if (set_value(temp_tuple) < 0) {
             atomic_store(&thread_return_value, -1);
-            sleep(0.1);
             send(client_socket, "error", sizeof("error"), 0);
         } else {
             atomic_store(&thread_return_value, 0);
-            sleep(0.1);
             send(client_socket, "noerror", sizeof("noerror"), 0);
             printf("Value set correctly\n");
         }
@@ -243,12 +244,13 @@ void petition_handler(void *socket) {
         int key;
         recv(client_socket, &key, sizeof(int), 0);
         if (exists(key) == 0) {
-            atomic_store(&thread_return_value, -1);
-            sleep(0.1);
-            send(client_socket, "error", sizeof("error"), 0);
+            printf("exists(key) == 0\n");
+            atomic_store(&thread_return_value, 0);
+            send(client_socket, "noexist", sizeof("noexist"), 0);
             return;
         }
         if (delete_key(key) < 0) {
+            printf("delete_key < 0\n");
             atomic_store(&thread_return_value, -1);
             sleep(0.1);
             send(client_socket, "error", sizeof("error"), 0);
@@ -262,8 +264,10 @@ void petition_handler(void *socket) {
         int key;
         recv(client_socket, &key, sizeof(int), 0);
         if (exists(key) == 0) {
+            printf("exists(key) == 0\n");
             atomic_store(&thread_return_value, -1);
-            send(client_socket, "error", sizeof("error"), 0);
+            send(client_socket, "noexist", sizeof("noexist"), 0);
+            atomic_store(&thread_return_value, 0);
             return;
         }
         send(client_socket, "noerror", sizeof("noerror"), 0);
@@ -276,6 +280,7 @@ void petition_handler(void *socket) {
 
         // attempt to modify tuple
         if (modify_value(key, value1, value2, value3) < 0) {
+            printf("modify_value < 0\n");
             atomic_store(&thread_return_value, -1);
             send(client_socket, "error", sizeof("error"), 0);
         } else{
@@ -303,7 +308,7 @@ void petition_handler(void *socket) {
         }
         return;
     } else {
-        printf("Error: received wrong operation\n");
+        fprintf(stderr, "Error: received wrong operation\n");
         atomic_store(&thread_return_value, -1);
     }
 }
@@ -371,7 +376,7 @@ int main () {
             printf("Exit operation received from client, terminating server\n");
             break;
         } else if (return_value < 0) {
-            printf("Error in last operation\n");
+            fprintf(stderr, "Error in last operation\n");
         } else {
             printf("Operation completed successfully\n");
         }

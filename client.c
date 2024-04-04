@@ -63,7 +63,7 @@ int handle_set() {
         scanf("%s", value1);
         contains_comma = strchr(value1, ',') != NULL;
         if (contains_comma) {
-            printf("Error: Value1 contains a comma. Please enter a valid value1.\n");
+            fprintf(stderr, "Error: Value1 contains a comma. Please enter a valid value1.\n");
         }
     } while(contains_comma);
 

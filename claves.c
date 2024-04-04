@@ -33,9 +33,13 @@ int set_value(int key, char *value1, int value2, double value3) {
 
     recv(client_socket, answer, 10, 0);
     if (strcmp(answer, "error") == 0) {
-        printf("Error setting value\n");
+        fprintf(stderr, "Error setting value\n");
         return -1;
+    } else if (strcmp(answer, "exist") == 0) {
+        printf("Tuple with key %d already exists, use modify instead\n", key);
+        return 0;
     }
+    printf("Value set correctly\n");
 
     return 0;
 }
@@ -48,7 +52,7 @@ int get_value(int key, char *value1, int *value2, double *value3) {
     sleep(0.1);
     recv(client_socket, answer, sizeof(answer), 0);
     if (strcmp("error", answer) == 0) {
-        printf("Error: key doesn't exist or error getting value\n");
+        fprintf(stderr, "Error: key doesn't exist or error getting value\n");
         return -1;
     }
 
@@ -61,18 +65,19 @@ int modify_value(int key, char *value1, int value2, double value3) {
     send(client_socket, &key, sizeof(int), 0);
     char answer[10];
     recv(client_socket, answer, sizeof(answer), 0);
-    if (strcmp(answer, "error") == 0) {
-        printf("Error: key doesn't exist\n");
-        return -1;
+    if (strcmp(answer, "noexist") == 0) {
+        printf("Tuple with key %d does not exist, use set instead\n", key);
+        return 0;
     }
 
     // send new tuple items to server
     socket_send(client_socket, value1, &value2, &value3);
     recv(client_socket, answer, sizeof(answer), 0);
     if (strcmp(answer, "error") == 0) {
-        printf("Error modifying value\n");
+        fprintf(stderr, "Error modifying value\n");
         return -1;
     }
+    printf("Value modified correctly\n");
 
     return 0;
 }
@@ -83,9 +88,13 @@ int delete_key(int key) {
     char answer[10];
     recv(client_socket, answer, sizeof(answer), 0);
     if (strcmp("error", answer) == 0){
-        printf("Error: error deleting key or key doesn't exist\n");
+        fprintf(stderr, "Error: error deleting key %d\n", key);
         return -1;
+    } else if (strcmp("noexist", answer) == 0) {
+        printf("Key %d does not exist\n", key);
+        return 0;
     }
+    printf("Key %d deleted correctly\n", key);
     return 0;
 }
 
@@ -100,7 +109,7 @@ int exist(int key) {
     } else if (strcmp(answer, "noexist") == 0) {
         return 0;
     }
-    printf("Error: error checking if key exists\n");
+    fprintf(stderr, "Error: error checking if key exists\n");
     return -1;
 }
 
@@ -111,3 +120,4 @@ int close_server() {
     printf("Bye!\n");
     return 0;
 }
+;
