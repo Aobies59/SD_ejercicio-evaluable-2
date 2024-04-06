@@ -19,6 +19,8 @@ int correct_operation(char* operation) {
         return 1;
     } else if (strcmp(operation, "exit") == 0) {
         return 1;
+    } else if (strcmp(operation, "init") == 0) {
+        return 1;
     }
 
     return 0;
@@ -135,12 +137,6 @@ int main () {
     signal(SIGINT, handle_sigint);
 
     printf("Welcome to the tuple management system.\n");
-    if (create_socket() < 0) {
-        exit(-1);
-    }
-    if (init() < 0) {
-        exit(-1);
-    }
     while (1) {
         if (create_socket() < 0) {
             exit(-1);
@@ -173,6 +169,10 @@ int main () {
             if (handle_modify() < 0) {
                 exit_with_error(operation);
             };
+        } else if (strcmp(operation, "init") == 0) {
+            if (init() < 0) {
+                exit_with_error(operation);
+            }
         }
     }
     exit(close_server());
