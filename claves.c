@@ -9,7 +9,6 @@ static int send_key(int socket, int key) {
     key = (int)htonl(key);
     char answer;
     do {
-        printf("Attempting to send key\n");
         sleep(0.1);  // necessary or the program hangs
         if (send(socket, &key, sizeof(int), 0) < 0) {
             perror("send");

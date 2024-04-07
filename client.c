@@ -4,6 +4,8 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <ctype.h>
 #include "claves.h"
 
 int correct_operation(char* operation) {
@@ -158,14 +160,164 @@ int handle_modify() {
     return 0;
 }
 
-void handle_sigint(int sig) {
-    exit(close_server());
+void handle_arguments(int argc, char *argv[]) {
+    if (argc != 1) {
+        if (strcmp(argv[1], "init") == 0) {
+            if (create_socket() < 0) {
+                exit(-1);
+            };
+            exit(handle_init());  // we can use handle_init since it doesn't ask for user input
+        } else if (strcmp(argv[1], "get") == 0) {
+            if (argc != 3) {
+                printf("Usage: ./client get <key>\n");
+                exit(-1);
+            }
+            if (isdigit(*argv[2]) == 0) {
+                printf("Usage: ./client get <key>\n");
+                exit(-1);
+            }
+            if (create_socket() < 0) {
+                exit(-1);
+            };
+            int key = atoi(argv[2]);
+            printf("Operation to get tuple with key %d received\n", key);
+            char value1[256];
+            int N_Value2;
+            double V_Value2[32];
+            int get_value_return_value = get_value(key, value1, &N_Value2, V_Value2);
+            if (get_value_return_value < 0) {
+                exit(-1);
+            } else if (get_value_return_value == 1) {
+                exit(2);
+            }
+            printf("Tuple %d: value1 = '%s', N_Value2 = %d, V_Value2 = ", key, value1, N_Value2);
+            printf("%.2f", V_Value2[0]);
+            for (int i = 1; i < N_Value2; i++) {
+                printf(", %.2f", V_Value2[i]);
+            }
+            printf("\n");
+        } else if (strcmp(argv[1], "exit") == 0) {
+            if (create_socket() < 0) {
+                exit(-1);
+            };
+            exit(close_server());
+        } else if (strcmp(argv[1], "delete") == 0) {
+            if (argc != 3) {
+                printf("Usage: ./client delete <key>\n");
+                exit(-1);
+            }
+            if (isdigit(*argv[2]) == 0) {
+                printf("Usage: ./client delete <key>\n");
+                exit(-1);
+            }
+            if (create_socket() < 0) {
+                exit(-1);
+            };
+            int key = atoi(argv[2]);
+            exit(delete_key(key));
+        } else if (strcmp(argv[1], "exist") == 0) {
+            if (argc != 3) {
+                printf("Usage: ./client exist <key>\n");
+                exit(-1);
+            }
+            if (isdigit(*argv[2]) == 0) {
+                printf("Usage: ./client exist <key>\n");
+                exit(-1);
+            }
+            if (create_socket() < 0) {
+                exit(-1);
+            };
+            int key = atoi(argv[2]);
+            int exist_return_value = exist(key);
+            if (exist_return_value == 0) {
+                printf("Key %d doesn't exist\n", key);
+            } else if (exist_return_value == 1) {
+                printf("Key %d exists\n", key);
+            } else {
+                exit(-1);
+            }
+        } else if (strcmp(argv[1], "set") == 0) {
+            if (argc < 6) {
+                printf("Usage: ./client set <key> <value_1> <N_Value2> <V_Value>\n");
+            }
+            if (isdigit(*argv[2]) == 0) {
+                printf("Usage: ./client set <key> <value_1> <N_Value2> <V_Value>\n");
+                exit(1);
+            }
+            int key = atoi(argv[2]);
+            char value_1[256];
+            strcpy(value_1, argv[3]);
+            if (isdigit(*argv[4]) == 0) {
+                printf("Usage: ./client set <key> <value_1> <N_Value2> <V_Value>\n");
+                exit(1);
+            }
+            int N_Value2 = atoi(argv[4]);
+            if (argc != N_Value2 + 5) {
+                printf("Number of elements in V_Value2 differs from the one specified in N_Value2\n");
+                exit(1);
+            }
+            double V_Value2[32];
+            for (int i = 0; i < N_Value2; i++) {
+                if (sscanf(argv[5+i], "%lf", &V_Value2[i]) != 1) {
+                    printf("Vector elements must be numeric\n");
+                    exit(1);
+                }
+                V_Value2[i] = atof(argv[5+i]);
+            }
+            if (create_socket() < 0) {
+                exit(1);
+            };
+            printf("Operation set tuple with key %d and N_Value2 %d, received\n", key, N_Value2);
+            sleep(0.1);
+            exit(set_value(key, value_1, N_Value2, V_Value2));
+        } else if (strcmp(argv[1], "modify") == 0) {
+            if (argc < 6) {
+                printf("Usage: ./client modify <key> <value_1> <N_Value2> <V_Value>\n");
+            }
+            if (isdigit(*argv[2]) == 0) {
+                printf("Usage: ./client modify <key> <value_1> <N_Value2> <V_Value>\n");
+                exit(1);
+            }
+            int key = atoi(argv[2]);
+            char value_1[256];
+            strcpy(value_1, argv[3]);
+            if (isdigit(*argv[4]) == 0) {
+                printf("Usage: ./client modify <key> <value_1> <N_Value2> <V_Value>\n");
+                exit(1);
+            }
+            int N_Value2 = atoi(argv[4]);
+            if (argc != N_Value2 + 5) {
+                printf("Number of elements in V_Value2 differs from the one specified in N_Value2\n");
+                exit(1);
+            }
+            double V_Value2[32];
+            for (int i = 0; i < N_Value2; i++) {
+                if (sscanf(argv[5+i], "%lf", &V_Value2[i]) != 1) {
+                    printf("Vector elements must be numeric\n");
+                    exit(1);
+                }
+                V_Value2[i] = atof(argv[5+i]);
+            }
+            if (create_socket() < 0) {
+                exit(1);
+            };
+            printf("Operation modify tuple with key %d and N_Value2 %d, received\n", key, N_Value2);
+            sleep(0.1);
+            exit(modify_value(key, value_1, N_Value2, V_Value2));
+        } else {
+            printf("Argument not related to any operation, entering user input mode.\n");
+            return;
+        }
+        exit(0);
+    } else {
+        return;
+    }
 }
 
-int main () {
-    signal(SIGINT, handle_sigint);
 
-    printf("Welcome to the tuple management system.\n");
+int main (int argc, char *argv[]) {
+    handle_arguments(argc, argv);
+    printf("Welcome to the tuple management system, user input mode.\n");
     while (1) {
         if (create_socket() < 0) {
             exit(-1);

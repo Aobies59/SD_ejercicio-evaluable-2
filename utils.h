@@ -26,7 +26,6 @@ struct answer {
 };
 
 int socket_send(int socket, const char value1[256], const int *N_Value2, const double V_Value2[32]) {
-    printf("Attempting to send tuple with N_Value2: %d...\n", *N_Value2);
     char buffer[BUFSIZE];
     snprintf(buffer, BUFSIZE - 32 * sizeof(double) - 100, "%d, %s", *N_Value2, value1);
     for (int i = 0; i < *N_Value2; i++) {
@@ -36,7 +35,6 @@ int socket_send(int socket, const char value1[256], const int *N_Value2, const d
     }
     char answer[10];
     do {
-        printf("\nSending buffer %s...\n", buffer);
         if (send(socket, buffer, BUFSIZE, 0) < 0) {
             return -1;
         }
@@ -62,13 +60,11 @@ int socket_recv(int socket, char value1[256], int *N_Value2, double *V_Value2) {
         items_read = sscanf(buffer, "%d, %s", N_Value2, str_value);
         if (items_read != 2) {
             send(socket, "error", sizeof("error"), 0);
-            printf("Buffer: %s\n", buffer);
         } else {
             strcpy(value1, strtok(str_value, ","));
             for (int i = 0; i < *N_Value2; i++) {
                 char *token = strtok(NULL, ",");
                 if (token == NULL) {
-                    printf("Buffer: %s\n", buffer);
                     send(socket, "error", sizeof("error"), 0);
                     items_read = 0;
                     break;

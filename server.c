@@ -232,7 +232,7 @@ void petition_handler(void *socket) {
     // receive operation from socket
     char operation[10];
     recv(client_socket, operation, sizeof(operation), 0);
-    printf("Handling operation %s\n", operation);
+    printf("Handling operation %s...\n", operation);
 
     if (strcmp(operation, "exit") == 0) {
         printf("Exit operation received from client, closing server\n");
