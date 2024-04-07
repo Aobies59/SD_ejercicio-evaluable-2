@@ -5,11 +5,36 @@
 int client_socket;
 struct sockaddr_in server;
 
+static int send_key(int socket, int key) {
+    key = (int)htonl(key);
+    char answer[10];
+    do {
+        if (send(socket, &key, sizeof(int), 0) < 0) {
+            perror("send");
+            return -1;
+        }
+        recv(socket, answer, sizeof(answer), 0);
+    } while (strcmp(answer, "noerror") != 0);
+    
+    return 0;
+}
+
 int create_socket () {
+    char *ip = getenv("IP_TUPLAS");
+    if (ip == NULL) {
+        fprintf(stderr, "Variable de entorno IP_TUPLAS no definida\n");
+        exit(1);
+    }
+    int port = atoi(getenv("PORT_TUPLAS"));
+    if (port == 0) {
+        fprintf(stderr, "Variable de entorno PORT_TUPLAS no definida\n");
+        exit(1);
+    }
+    
     bzero((char *)&server, sizeof(server));
     server.sin_family = AF_INET;
-    server.sin_addr.s_addr = inet_addr("127.0.0.0");
-    server.sin_port = htons(PORT);
+    server.sin_addr.s_addr = inet_addr(ip);
+    server.sin_port = htons(port);
     if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("create socket");
     }
@@ -34,7 +59,7 @@ int set_value(int key, char *value1, int value2, double value3) {
     // send petition
     send(client_socket, "set", sizeof("set"), 0);
     sleep(0.1);
-    send(client_socket, &key, sizeof(int), 0);
+    send_key(client_socket, key);
     socket_send(client_socket, value1, &value2, &value3);
 
     recv(client_socket, answer, 10, 0);
@@ -51,24 +76,33 @@ int set_value(int key, char *value1, int value2, double value3) {
 }
 
 int get_value(int key, char *value1, int *value2, double *value3) {
+    // this hangs sometimes without the sleep(0.1)s
     send(client_socket, "get", sizeof("get"), 0);
     char answer[10];
     sleep(0.1);
-    send(client_socket, &key, sizeof(int), 0);
+    send_key(client_socket, key);
     sleep(0.1);
     recv(client_socket, answer, sizeof(answer), 0);
     if (strcmp("error", answer) == 0) {
-        fprintf(stderr, "Error: key doesn't exist or error getting value\n");
+        fprintf(stderr, "Error: error getting value\n");
         return -1;
+    } else if (strcmp("noexist", answer) == 0) {
+        printf("Key does not exist\n");
+        return 1;
     }
 
     // receive tuple item from socket
-    return socket_recv(client_socket, value1, value2, value3);
+    sleep(0.1);
+    if (socket_recv(client_socket, value1, value2, value3) < 0) {
+        fprintf(stderr, "Error: error receiving tuple items\n");
+        return -1;
+    }
+    return 0;
 }
 
 int modify_value(int key, char *value1, int value2, double value3) {
     send(client_socket, "modify", sizeof("modify"), 0);
-    send(client_socket, &key, sizeof(int), 0);
+    send_key(client_socket, key);
     char answer[10];
     recv(client_socket, answer, sizeof(answer), 0);
     if (strcmp(answer, "noexist") == 0) {
@@ -90,7 +124,7 @@ int modify_value(int key, char *value1, int value2, double value3) {
 
 int delete_key(int key) {
     send(client_socket, "delete", sizeof("delete"), 0);
-    send(client_socket, &key, sizeof(int), 0);
+    send_key(client_socket, key);
     char answer[10];
     recv(client_socket, answer, sizeof(answer), 0);
     if (strcmp("error", answer) == 0){
@@ -107,7 +141,7 @@ int delete_key(int key) {
 int exist(int key) {
     send(client_socket, "exist", sizeof("exist"), 0);
     sleep(0.1);
-    send(client_socket, &key, sizeof(int), 0);
+    send_key(client_socket, key);
     char answer[10];
     recv(client_socket, answer, sizeof(answer), 0);
     if (strcmp(answer, "exist") == 0) {

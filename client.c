@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include "claves.h"
+#include <ctype.h>
 
 int correct_operation(char* operation) {
     if (strcmp(operation, "set") == 0) {
@@ -34,11 +35,15 @@ int handle_get() {
 
     printf("Input key: ");
     scanf("%d", &key);
+    int get_value_return_value = get_value(key, value1, &value2, &value3);
 
-    if (get_value(key, value1, &value2, &value3) < 0) {
+    if (get_value_return_value < 0) {
         return -1;
+    } else if (get_value_return_value == 1) {
+        return 0;
+    } else {
+        printf("Key: %d\nValue1: %s\nvalue2: %d\nvalue3: %.3lf\n", key, value1, value2, value3);
     }
-    printf("Key: %d\nValue1: %s\nvalue2: %d\nvalue3: %.3lf\n", key, value1, value2, value3);
     return 0;
 }
 
@@ -57,7 +62,6 @@ int handle_set() {
 
     printf("Input key: ");
     scanf("%d", &key);
-
 
     bool contains_comma;
     do {
@@ -129,11 +133,43 @@ int handle_modify() {
     return 0;
 }
 
+int handle_init() {
+    if (init() < 0) {
+        return -1;
+    }
+    printf("Tuple system has been reset\n");
+    return 0;
+}
+
 void handle_sigint(int sig) {
     exit(close_server());
 }
 
-int main () {
+int main (int argc, char *argv[]) {
+    if (argc != 1) {
+        if (strcmp(argv[1], "get") == 0) {
+            if (argc != 3) {
+                printf("Usage: ./client get <key>\n");
+                exit(1);
+            }
+            if (isdigit(*argv[2]) == 0) {
+                printf("Usage: ./client get <key>\n");
+                exit(1);
+            }
+            if (create_socket() < 0) {
+                exit(1);
+            };
+            int key = atoi(argv[2]);
+            char value1[256];
+            int value2;
+            double value3;
+            if (get_value(key, value1, &value2, &value3) < 0) {
+                exit(1);
+            }
+            printf("Tuple %d: <%s-%d-%lf>\n", key, value1, value2, value3);
+            exit(0);
+        }
+    }
     signal(SIGINT, handle_sigint);
 
     printf("Welcome to the tuple management system.\n");
@@ -170,7 +206,7 @@ int main () {
                 exit_with_error(operation);
             };
         } else if (strcmp(operation, "init") == 0) {
-            if (init() < 0) {
+            if (handle_init() < 0) {
                 exit_with_error(operation);
             }
         }
