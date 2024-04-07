@@ -1,0 +1,48 @@
+
+Waiting for a petition...
+Received a petition
+Handling operation set...
+Receiving key
+Received key 1
+Receiving tuple items
+Received tuple items
+Value set correctly
+Operation completed successfully
+
+Waiting for a petition...
+Received a petition
+Handling operation exist...
+Received key 1
+Operation completed successfully
+
+Waiting for a petition...
+Received a petition
+Handling operation set...
+Receiving key
+Received key 2
+Receiving tuple items
+Received tuple items
+Value set correctly
+Operation completed successfully
+
+Waiting for a petition...
+Received a petition
+Handling operation exist...
+Received key 2
+Operation completed successfully
+
+Waiting for a petition...
+Received a petition
+Handling operation delete...
+Operation completed successfully
+
+Waiting for a petition...
+Received a petition
+Handling operation exist...
+Received key 1
+Operation completed successfully
+
+Waiting for a petition...
+Received a petition
+Handling operation exit...
+Exit operation received from client, closing server
