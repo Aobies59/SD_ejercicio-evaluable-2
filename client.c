@@ -8,7 +8,10 @@
 #include <ctype.h>
 
 int correct_operation(char* operation) {
-    if (strcmp(operation, "set") == 0) {
+    // CHECK IF OPERATION IS CORRECT
+    if (strcmp(operation, "init") == 0) {
+        return 1;
+    } else if (strcmp(operation, "set") == 0) {
         return 1;
     } else if (strcmp(operation, "get") == 0) {
         return 1;
@@ -23,7 +26,6 @@ int correct_operation(char* operation) {
     } else if (strcmp(operation, "init") == 0) {
         return 1;
     }
-
     return 0;
 }
 
@@ -47,19 +49,13 @@ int handle_get() {
     return 0;
 }
 
-void exit_with_error(char* operation) {
-    char error_string[100];
-    sprintf(error_string, "Error with operation: %s", operation);
-    close_server();
-    exit(-1);
-}
-
 int handle_set() {
     int key;
     char value1[256];
     int value2;
     double value3;
 
+    // GET KEY
     printf("Input key: ");
     scanf("%d", &key);
 
@@ -73,40 +69,36 @@ int handle_set() {
         }
     } while(contains_comma);
 
+    // GET N_VALUE2
     printf("Input value2: ");
     scanf("%d", &value2);
 
+    // GET V_VALUE2
     printf("Input value3: ");
     scanf("%lf", &value3);
 
+    // EXECUTE OPERATION
     if (set_value(key, value1, value2, value3) < 0) {
         return -1;
     }
     return 0;
 }
 
-int handle_delete() {
+int handle_get() {
     int key;
-    printf("Input key: ");
-    scanf("%d", &key);
-    if (delete_key(key) < 0) {
-        return -1;
-    }
-    return 0;
-}
+    char value1[256];
+    int value2;
+    double value3;
 
-int handle_exist() {
-    int key;
+    // GET KEY
     printf("Input key: ");
     scanf("%d", &key);
-    int key_exists = exist(key);
-    if (key_exists < 0) {
+
+    // EXECUTE OPERATION
+    if (get_value(key, value1, &value2, &value3) < 0) {
         return -1;
-    } else if (key_exists == 0) {
-        printf("Key does not exist.\n");
-        return 0;
     }
-    printf("Key exists.\n");
+    printf("Key: %d\nValue1: %s\nvalue2: %d\nvalue3: %.3lf\n", key, value1, value2, value3);
     return 0;
 }
 
@@ -116,17 +108,23 @@ int handle_modify() {
     int value2;
     double value3;
 
+    // GET KEY
     printf("Input key: ");
     scanf("%d", &key);
 
+    // GET VALUE1
     printf("Input value1: ");
     scanf("%s", value1);
 
+    // GET N_VALUE2
     printf("Input value2: ");
     scanf("%d", &value2);
 
+    // GET V_VALUE2
     printf("Input value3: ");
     scanf("%lf", &value3);
+
+    // EXECUTE OPERATION
     if (modify_value(key, value1, value2, value3) < 0) {
         return -1;
     }
