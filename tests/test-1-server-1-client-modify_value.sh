@@ -2,33 +2,45 @@
 echo "# EXECUTING: $0"
 
 # Change directory to root directory
-cd ../
+if [ "$(basename "$(pwd)")" = "tests" ]; then
+    cd ..
+fi
 
 # Compile project
-make
+make &> ./tests_output/temp_file.txt
+
+# Delete the tuples.csv file to make sure there is no data left (the server creates it again)
+rm tuples.csv
 
 # Define environment variables
 export IP_TUPLAS="127.0.0.1"
 export PORT_TUPLAS="8080"
 
 # Start the server
-./server &
+./server &> ./tests_output/test-1-server-1-client-modify-value-server-output.txt &
 
 # Get its PID
 SERVER_PID=$!
 
 # Give the server time to start up
-sleep 1
+sleep 0.5
 
 # Start the client
-./client modify 1 "modify_value" 4 0.12401 -12.1209 9991.2 28271.001 &
+./client set 1 "test" 2 1.4231 2231.0013 &>> ./tests_output/test-1-server-1-client-modify-value-client-output.txt &
+./client modify 1 "test_02" 1 1.004 &>> ./tests_output/test-1-server-1-client-modify-value-client-output.txt &
 
 # Wait client to finish
 wait $!
 
 # Stop the server
-kill $SERVER_PID
+./client exit &>>  ./tests_output/test-1-server-1-client-modify-value-client-output.txt &
 
-# See tuples file contents
-echo "# TUPLES FILE:"
-cat ./tuples.csv
+# Compare tuples.csv with the expected content
+echo "1,1,test_02,1.004000" > tests_output/temp_test_file.txt
+if diff -q tuples.csv tests_output/temp_test_file.txt; then
+    echo "PASSED"
+else
+    echo "FAILED"
+fi
+
+rm tests_output/temp_test_file.txt

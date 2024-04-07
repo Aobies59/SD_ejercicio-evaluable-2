@@ -26,7 +26,7 @@ SERVER_PID=$!
 sleep 0.5
 
 # Start the client
-./client set 1 "set_value" 2 1.4231 2231.0013 &>> ./tests_output/test-1-server-1-client-set-value-client-output.txt &
+./client set 1 "test" 2 1.4231 2231.0013 &>> ./tests_output/test-1-server-1-client-set-value-client-output.txt &
 
 # Wait client to finish
 wait $!
@@ -34,13 +34,13 @@ wait $!
 # Stop the server
 ./client exit &>>  ./tests_output/test-1-server-1-client-set-value-client-output.txt &
 
-rm ./tests_output/temp_file.txt
-
 # Compare tuples.csv with the expected content
-echo "1,2,set_value,1.423100,2231.001300" > tests_output/temp_test_file.txt
+echo "1,2,test,1.423100,2231.001300" > tests_output/temp_test_file.txt
 if diff -q tuples.csv tests_output/temp_test_file.txt; then
     echo "PASSED"
 else
     echo "FAILED"
 fi
+
+rm tests_output/temp_file.txt
 rm tests_output/temp_test_file.txt
