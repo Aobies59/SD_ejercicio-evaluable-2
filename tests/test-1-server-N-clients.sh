@@ -7,8 +7,12 @@ cd ../
 # Compile project
 make
 
+# Define environment variables
+export IP_TUPLAS="127.0.0.1"
+export PORT_TUPLAS="8080"
+
 # Start the server
-./servidor &
+./server &
 
 # Get its PID
 SERVER_PID=$!
@@ -17,12 +21,12 @@ SERVER_PID=$!
 sleep 1
 
 # Start the clients
-./cliente init &
-./cliente set_value 1 "set_value" 2 21.1532024 -97122100278156.128392 &
-./cliente exist 1 &
-./cliente modify_value 1 "modify_value" 4 0.126404821 -17002781826.001874 -662.2 11991879.11 &
-./cliente get_value 1 &
-./cliente delete_key 1 &
+./client init &
+./client set 1 "set_value" 2 21.152 -97121.182 &
+./client exist 1 &
+./client modify 1 "modify_value" 4 0.12401 -12.1209 9991.2 28271.001 &
+./client get 1 &
+./cliente delete 1 &
 
 # Wait last client to finish
 wait $!
