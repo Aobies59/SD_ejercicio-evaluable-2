@@ -56,3 +56,4 @@ client
 server
 libclaves.so
 tuples.csv
+*output.txt
