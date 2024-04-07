@@ -6,7 +6,7 @@ if [ "$(basename "$(pwd)")" = "tests" ]; then
     cd ..
 fi
 
-sh tests/kill-server.sh
+sh tests/kill_server.sh
 
 # Compile project
 make &> ./tests_output/temp_file.txt

@@ -5,7 +5,7 @@ if [ "$(basename "$(pwd)")" = "tests" ]; then
     cd ..
 fi
 
-sh tests/kill-server.sh
+sh tests/kill_server.sh
 
 # kill the server in case it is running in the background
 sh ./tests/kill_server.sh
