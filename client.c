@@ -180,7 +180,6 @@ void handle_arguments(int argc, char *argv[]) {
                 exit(-1);
             };
             int key = atoi(argv[2]);
-            printf("Operation to get tuple with key %d received\n", key);
             char value1[256];
             int N_Value2;
             double V_Value2[32];
@@ -267,7 +266,6 @@ void handle_arguments(int argc, char *argv[]) {
             if (create_socket() < 0) {
                 exit(1);
             };
-            printf("Operation set tuple with key %d and N_Value2 %d, received\n", key, N_Value2);
             sleep(0.1);
             exit(set_value(key, value_1, N_Value2, V_Value2));
         } else if (strcmp(argv[1], "modify") == 0) {
@@ -301,7 +299,6 @@ void handle_arguments(int argc, char *argv[]) {
             if (create_socket() < 0) {
                 exit(1);
             };
-            printf("Operation modify tuple with key %d and N_Value2 %d, received\n", key, N_Value2);
             sleep(0.1);
             exit(modify_value(key, value_1, N_Value2, V_Value2));
         } else {
