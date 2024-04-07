@@ -81,7 +81,7 @@ int handle_set() {
 
     bool contains_comma;
     do {
-        printf("Input value1: ");
+        printf("Input value1 (string): ");
         scanf("%s", value1);
         contains_comma = strchr(value1, ',') != NULL;
         if (contains_comma) {
@@ -91,14 +91,14 @@ int handle_set() {
 
     do 
     {
-    printf("Input N_value2: ");
+    printf("Input N_value2 (size of value2 vector): ");
     scanf("%d", &N_Value2);
     if (N_Value2 < 1 || N_Value2 > 32) {
         printf("Error: N_value2 must be between 1 and 32. Please enter a valid value.\n");
     }
     } while(N_Value2 < 1 || N_Value2 > 32);
 
-    printf("Input V_Value2 of size %d:\n", N_Value2);
+    printf("Input vector V_Value2 of size %d:\n", N_Value2);
     for (int i = 0; i < N_Value2; i++) {
         printf("V_Value2[%d]: ", i);
         scanf("%lf", &V_Value2[i]);
