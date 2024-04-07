@@ -50,6 +50,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Project-specific files
 client
 server
 libclaves.so
+tuples.csv
