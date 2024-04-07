@@ -7,14 +7,16 @@ struct sockaddr_in server;
 
 static int send_key(int socket, int key) {
     key = (int)htonl(key);
-    char answer[10];
+    char answer;
     do {
+        printf("Attempting to send key\n");
+        sleep(0.1);  // necessary or the program hangs
         if (send(socket, &key, sizeof(int), 0) < 0) {
             perror("send");
             return -1;
         }
-        recv(socket, answer, sizeof(answer), 0);
-    } while (strcmp(answer, "noerror") != 0);
+        recv(socket, &answer, sizeof(answer), 0);
+    } while (answer != 0);
     
     return 0;
 }
@@ -53,14 +55,13 @@ int init() {
     return 0;
 }
 
-int set_value(int key, char *value1, int value2, double value3) {
+int set_value(int key, char *value1, int N_Value2, double *V_Value2) {
     char answer[10];
 
     // send petition
     send(client_socket, "set", sizeof("set"), 0);
-    sleep(0.1);
     send_key(client_socket, key);
-    socket_send(client_socket, value1, &value2, &value3);
+    socket_send(client_socket, value1, &N_Value2, V_Value2);
 
     recv(client_socket, answer, 10, 0);
     if (strcmp(answer, "error") == 0) {
@@ -75,13 +76,10 @@ int set_value(int key, char *value1, int value2, double value3) {
     return 0;
 }
 
-int get_value(int key, char *value1, int *value2, double *value3) {
-    // this hangs sometimes without the sleep(0.1)s
+int get_value(int key, char *value1, int *N_Value2, double *V_Value2) {
     send(client_socket, "get", sizeof("get"), 0);
     char answer[10];
-    sleep(0.1);
     send_key(client_socket, key);
-    sleep(0.1);
     recv(client_socket, answer, sizeof(answer), 0);
     if (strcmp("error", answer) == 0) {
         fprintf(stderr, "Error: error getting value\n");
@@ -93,14 +91,14 @@ int get_value(int key, char *value1, int *value2, double *value3) {
 
     // receive tuple item from socket
     sleep(0.1);
-    if (socket_recv(client_socket, value1, value2, value3) < 0) {
+    if (socket_recv(client_socket, value1, N_Value2, V_Value2) < 0) {
         fprintf(stderr, "Error: error receiving tuple items\n");
         return -1;
     }
     return 0;
 }
 
-int modify_value(int key, char *value1, int value2, double value3) {
+int modify_value(int key, char *value1, int N_Value2, double *V_Value2) {
     send(client_socket, "modify", sizeof("modify"), 0);
     send_key(client_socket, key);
     char answer[10];
@@ -111,7 +109,7 @@ int modify_value(int key, char *value1, int value2, double value3) {
     }
 
     // send new tuple items to server
-    socket_send(client_socket, value1, &value2, &value3);
+    socket_send(client_socket, value1, &N_Value2, V_Value2);
     recv(client_socket, answer, sizeof(answer), 0);
     if (strcmp(answer, "error") == 0) {
         fprintf(stderr, "Error modifying value\n");

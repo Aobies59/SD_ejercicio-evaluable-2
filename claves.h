@@ -28,7 +28,7 @@ int init();
  * @retval 0 si se insertó con éxito.
  * @retval -1 en caso de error.
  */
-int set_value(int key, char *value1, int value2, double value3);
+int set_value(int key, char *value1, int N_value2, double *V_value2);
 
 /**
  * @brief Este servicio permite obtener los valores asociados a la clave key. La cadena de caracteres
@@ -48,7 +48,7 @@ int set_value(int key, char *value1, int value2, double value3);
  * @retval 0 en caso de éxito.
  * @retval -1 en caso de error.
  */
-int get_value(int key, char *value1, int *value2, double *value3);
+int get_value(int key, char *value1, int *N_value2, double *V_value2);
 
 /**
  * @brief Este servicio permite modificar los valores asociados a la clave key. La función devuelve 0 en caso
@@ -65,7 +65,7 @@ int get_value(int key, char *value1, int *value2, double *value3);
  * @retval 0 si se modificó con éxito.
  * @retval -1 en caso de error.
  */
-int modify_value(int key, char *value1, int value2, double value3);
+int modify_value(int key, char *value1, int N_value2, double *V_value2);
 
 /**
  * @brief Este servicio permite borrar el elemento cuya clave es key. La
@@ -94,7 +94,7 @@ int delete_key(int key);
 int exist(int key);
 
 /**
- * @brief Este servicio finaliza el servicio de elementos clave-valor1-valor2.
+ * @brief Este servicio crea el socket del cliente y lo conecta con el servidor.
  * 
  * @return int La función devuelve 0 en caso de exito y -1 en caso de error.
  * @retval 0 en caso de exito.
@@ -103,14 +103,12 @@ int exist(int key);
 int create_socket();
 
 /**
- * @brief Este servicio crea el socket del cliente y conecta con el servidor
+ * @brief Este servicio finaliza el servicio de elementos clave-valor1-valor2.
  * 
  * @return int La función devuelve 0 en caso de exito y -1 en caso de error.
  * @retval 0 en caso de exito.
  * @retval -1 en caso de error.
  */
-int create_socket();
-
 int close_server();
 
 #endif

@@ -5,13 +5,9 @@
 #include <signal.h>
 #include <stdbool.h>
 #include "claves.h"
-#include <ctype.h>
 
 int correct_operation(char* operation) {
-    // CHECK IF OPERATION IS CORRECT
-    if (strcmp(operation, "init") == 0) {
-        return 1;
-    } else if (strcmp(operation, "set") == 0) {
+    if (strcmp(operation, "set") == 0) {
         return 1;
     } else if (strcmp(operation, "get") == 0) {
         return 1;
@@ -26,38 +22,60 @@ int correct_operation(char* operation) {
     } else if (strcmp(operation, "init") == 0) {
         return 1;
     }
+
+    return 0;
+}
+
+void exit_with_error(char* operation) {
+    char error_string[100];
+    sprintf(error_string, "Error with operation: %s", operation);
+    close_server();
+    exit(-1);
+}
+
+int handle_init() {
+    if (init() < 0) {
+        fprintf(stderr, "Error: error restarting tuple functionality\n");
+        return -1;
+    }
+    printf("Tuple functionality restarted\n");
     return 0;
 }
 
 int handle_get() {
     int key;
     char value1[256];
-    int value2;
-    double value3;
+    int N_value2;
+    double V_value2[32];
 
     printf("Input key: ");
     scanf("%d", &key);
-    int get_value_return_value = get_value(key, value1, &value2, &value3);
+
+    int get_value_return_value = get_value(key, value1, &N_value2, V_value2);
 
     if (get_value_return_value < 0) {
         return -1;
     } else if (get_value_return_value == 1) {
         return 0;
-    } else {
-        printf("Key: %d\nValue1: %s\nvalue2: %d\nvalue3: %.3lf\n", key, value1, value2, value3);
     }
+    printf("Key: %d\nValue1: %s\nN_value2: %d\nV_value2: ", key, value1, N_value2);
+    printf("%.2f", V_value2[0]);
+    for (int i = 1; i < N_value2; i++) {
+        printf(", %.2f", V_value2[i]);
+    }
+    printf("\n");
     return 0;
 }
 
 int handle_set() {
     int key;
     char value1[256];
-    int value2;
-    double value3;
+    int N_Value2;
+    double V_Value2[32];
 
-    // GET KEY
     printf("Input key: ");
     scanf("%d", &key);
+
 
     bool contains_comma;
     do {
@@ -65,77 +83,78 @@ int handle_set() {
         scanf("%s", value1);
         contains_comma = strchr(value1, ',') != NULL;
         if (contains_comma) {
-            fprintf(stderr, "Error: Value1 contains a comma. Please enter a valid value1.\n");
+            printf("Error: Value1 contains a comma. Please enter a valid value1.\n");
         }
     } while(contains_comma);
 
-    // GET N_VALUE2
-    printf("Input value2: ");
-    scanf("%d", &value2);
+    do 
+    {
+    printf("Input N_value2: ");
+    scanf("%d", &N_Value2);
+    if (N_Value2 < 1 || N_Value2 > 32) {
+        printf("Error: N_value2 must be between 1 and 32. Please enter a valid value.\n");
+    }
+    } while(N_Value2 < 1 || N_Value2 > 32);
 
-    // GET V_VALUE2
-    printf("Input value3: ");
-    scanf("%lf", &value3);
-
-    // EXECUTE OPERATION
-    if (set_value(key, value1, value2, value3) < 0) {
+    printf("Input V_Value2 of size %d:\n", N_Value2);
+    for (int i = 0; i < N_Value2; i++) {
+        printf("V_Value2[%d]: ", i);
+        scanf("%lf", &V_Value2[i]);
+    }
+    if (set_value(key, value1, N_Value2, V_Value2) < 0) {
         return -1;
     }
     return 0;
 }
 
-int handle_get() {
+int handle_delete() {
     int key;
-    char value1[256];
-    int value2;
-    double value3;
-
-    // GET KEY
     printf("Input key: ");
     scanf("%d", &key);
-
-    // EXECUTE OPERATION
-    if (get_value(key, value1, &value2, &value3) < 0) {
+    if (delete_key(key) < 0) {
         return -1;
     }
-    printf("Key: %d\nValue1: %s\nvalue2: %d\nvalue3: %.3lf\n", key, value1, value2, value3);
+    return 0;
+}
+
+int handle_exist() {
+    int key;
+    printf("Input key: ");
+    scanf("%d", &key);
+    int key_exists = exist(key);
+    if (key_exists < 0) {
+        return -1;
+    } else if (key_exists == 0) {
+        printf("Key does not exist.\n");
+        return 0;
+    }
+    printf("Key exists.\n");
     return 0;
 }
 
 int handle_modify() {
     int key;
     char value1[256];
-    int value2;
-    double value3;
+    int N_value2;
+    double V_value2[32];
 
-    // GET KEY
     printf("Input key: ");
     scanf("%d", &key);
 
-    // GET VALUE1
     printf("Input value1: ");
     scanf("%s", value1);
 
-    // GET N_VALUE2
-    printf("Input value2: ");
-    scanf("%d", &value2);
+    printf("Input N_value2: ");
+    scanf("%d", &N_value2);
 
-    // GET V_VALUE2
-    printf("Input value3: ");
-    scanf("%lf", &value3);
-
-    // EXECUTE OPERATION
-    if (modify_value(key, value1, value2, value3) < 0) {
+    printf("Input V_value2:\n");
+    for (int i = 0; i < N_value2; i++) {
+        printf("V_value2[%d]: ", i);
+        scanf("%lf", &V_value2[i]);
+    }
+    if (modify_value(key, value1, N_value2, V_value2) < 0) {
         return -1;
     }
-    return 0;
-}
-
-int handle_init() {
-    if (init() < 0) {
-        return -1;
-    }
-    printf("Tuple system has been reset\n");
     return 0;
 }
 
@@ -143,31 +162,7 @@ void handle_sigint(int sig) {
     exit(close_server());
 }
 
-int main (int argc, char *argv[]) {
-    if (argc != 1) {
-        if (strcmp(argv[1], "get") == 0) {
-            if (argc != 3) {
-                printf("Usage: ./client get <key>\n");
-                exit(1);
-            }
-            if (isdigit(*argv[2]) == 0) {
-                printf("Usage: ./client get <key>\n");
-                exit(1);
-            }
-            if (create_socket() < 0) {
-                exit(1);
-            };
-            int key = atoi(argv[2]);
-            char value1[256];
-            int value2;
-            double value3;
-            if (get_value(key, value1, &value2, &value3) < 0) {
-                exit(1);
-            }
-            printf("Tuple %d: <%s-%d-%lf>\n", key, value1, value2, value3);
-            exit(0);
-        }
-    }
+int main () {
     signal(SIGINT, handle_sigint);
 
     printf("Welcome to the tuple management system.\n");

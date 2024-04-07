@@ -17,16 +17,21 @@ static int receive_key(int socket, int *key) {
     do {
         received_bytes = recv(socket, key, sizeof(int), 0);
         if (received_bytes != sizeof(int)) {
-            if (send(socket, "recverror", sizeof("recverror"), 0) < 0) {
+            printf("Received %d bytes\n", received_bytes);\
+            int error = -1;
+            if (send(socket, &error, 1, 0) < 0) {
                 perror("send");
                 return -1;
             }
         }
     } while (received_bytes != sizeof(int));
-    if (send(socket, "noerror", sizeof("noerror"), 0) < 0) {
+
+    int success = 0;
+    if (send(socket, &success, 1, 0) < 0) {
         perror("send");
         return -1;
     }
+
     *key = (int)ntohl(*key);
     return 0;
 }
@@ -55,12 +60,10 @@ int exists(int key) {
     }
     char *line = malloc(MAXLINE * sizeof(char));    
     line = fgets(line, MAXLINE, tuples_file);
-    int tuple_key, value2;
-    char value1[256];
-    double value3;
+    int tuple_key;
     while (line != NULL) {
-        int items = sscanf(line, "%d, %d, %lf, %s\n", &tuple_key, &value2, &value3, value1);
-        if (items != 4) {
+        int items = sscanf(line, "%d", &tuple_key);
+        if (items != 1) {
             fprintf(stderr, "Error: error in reading file\n");
             fclose(tuples_file);
             pthread_mutex_unlock(&file_lock);
@@ -80,6 +83,11 @@ int exists(int key) {
 }
 
 int set_value(struct tuple given_tuple) {
+    // check if N_value2 is between 1 and 32
+    if (given_tuple.N_Value2 < 1 || given_tuple.N_Value2 > 32) {
+        return -1;
+    }
+
     // check if key exists
     if (exists(given_tuple.key) == 1) {
         fprintf(stderr, "Error: key already exists\n");
@@ -94,14 +102,17 @@ int set_value(struct tuple given_tuple) {
         fclose(tuples_file);
         return -1;
     }
-    fprintf(tuples_file, "%d,%d,%lf, %s\n", given_tuple.key, given_tuple.value2, given_tuple.value3, given_tuple.value1);
+    fprintf(tuples_file, "%d,%d,%s", given_tuple.key, given_tuple.N_Value2, given_tuple.value1);
+    for (int i = 0; i < given_tuple.N_Value2; i++) {
+        fprintf(tuples_file, ",%lf", given_tuple.V_Value2[i]);
+    }
+    fprintf(tuples_file, "\n");
     fclose(tuples_file);
     pthread_mutex_unlock(&file_lock);
     return 0;
 }
 
-int get_value(int key, char *value1, int *value2, double *value3) {
-    bzero(stdin, 1);
+int get_value(int key, char *value1, int *N_Value2, double *V_Value2) {
     if (exists(key) == 0) {
         return -1;
     }
@@ -116,10 +127,14 @@ int get_value(int key, char *value1, int *value2, double *value3) {
     char *line = malloc(MAXLINE * sizeof(char));    
     line = fgets(line, MAXLINE, tuples_file);
     while (line != NULL) {
+        char str_value[MAXLINE];
         int temp_key;
-        sscanf(line, "%d,%d,%lf, %s", &temp_key, value2, value3, value1);
-        bzero(stdin, 1);
+        sscanf(line, "%d,%d, %s", &temp_key, N_Value2, str_value);
         if (temp_key == key) {
+            strcpy(value1, strtok(str_value, ","));
+            for (int i = 0; i < *N_Value2; i++) {
+                V_Value2[i] = atof(strtok(NULL, ","));
+            }
             free(line);
             fclose(tuples_file);
             pthread_mutex_unlock(&file_lock);
@@ -133,44 +148,7 @@ int get_value(int key, char *value1, int *value2, double *value3) {
     return -1;
 }
 
-int modify_value(int key, char *value1, int value2, double value3) {
-    const long MAXLINE = 4096;  // big enough number that endofline will occur before end of buffer
-    pthread_mutex_lock(&file_lock);
-    FILE *tuples_file = fopen(tuples_filename, "r");
-    FILE *temp_tuples_file = fopen("temp.csv", "w");
-    if (tuples_file == NULL) {
-        fclose(tuples_file);
-        pthread_mutex_unlock(&file_lock);
-        return -1;
-    }
-    char *line = malloc(MAXLINE * sizeof(char));    
-    line = fgets(line, MAXLINE, tuples_file);
-    int read_key, read_value2;
-    double read_value3;
-    char read_value1[256];
-    while (line != NULL) {
-        sscanf(line, "%d, %d, %lf, %s\n", &read_key, &read_value2, &read_value3, read_value1);
-        bzero(stdin, 1);
-        if (read_key != key) {
-            fputs(line, temp_tuples_file);
-        } else {
-            // write the new tuple to the temp file
-            fprintf(temp_tuples_file, "%d,%d,%lf, %s", key, value2, value3, value1);
-        }
-        line = fgets(line, MAXLINE, tuples_file);
-    }
-    free(line);
-    fclose(tuples_file);
-    fclose(temp_tuples_file);
-    // remove original file and replace it with temp file
-    remove(tuples_filename);
-    rename("temp.csv", tuples_filename);
-    pthread_mutex_unlock(&file_lock);
-    return 0;
-}
-
-int delete_key(int key) {
-    bzero(stdin, 1);
+int modify_value(int key, char *value1, int N_Value2, double *V_Value2) {
     const long MAXLINE = 4096;  // big enough number that endofline will occur before end of buffer
     pthread_mutex_lock(&file_lock);
     FILE *tuples_file = fopen(tuples_filename, "r");
@@ -185,7 +163,43 @@ int delete_key(int key) {
     int read_key;
     while (line != NULL) {
         sscanf(line, "%d", &read_key);
-        bzero(stdin, 1);
+        if (read_key != key) {
+            fputs(line, temp_tuples_file);
+        } else {
+            // write the new tuple to the temp file
+            fprintf(temp_tuples_file, "%d,%d,%s", key, N_Value2, value1);
+            for (int i = 0; i < N_Value2; i++) {
+                fprintf(temp_tuples_file, ",%lf", V_Value2[i]);
+            }
+            fprintf(temp_tuples_file, "\n");
+        }
+        line = fgets(line, MAXLINE, tuples_file);
+    }
+    free(line);
+    fclose(tuples_file);
+    fclose(temp_tuples_file);
+    // remove original file and replace it with temp file
+    remove(tuples_filename);
+    rename("temp.csv", tuples_filename);
+    pthread_mutex_unlock(&file_lock);
+    return 0;
+}
+
+int delete_key(int key) {
+    const long MAXLINE = 4096;  // big enough number that endofline will occur before end of buffer
+    pthread_mutex_lock(&file_lock);
+    FILE *tuples_file = fopen(tuples_filename, "r");
+    FILE *temp_tuples_file = fopen("temp.csv", "w");
+    if (tuples_file == NULL) {
+        fclose(tuples_file);
+        pthread_mutex_unlock(&file_lock);
+        return -1;
+    }
+    char *line = malloc(MAXLINE * sizeof(char));    
+    line = fgets(line, MAXLINE, tuples_file);
+    int read_key;
+    while (line != NULL) {
+        sscanf(line, "%d", &read_key);
         if (read_key != key) {
             // write the read line to the temp file
             fputs(line, temp_tuples_file);
@@ -227,17 +241,20 @@ void petition_handler(void *socket) {
     } else if (strcmp(operation, "set") == 0) {
         // receive tuple key from socket
         int key;
+        printf("Receiving key\n");
         if (receive_key(client_socket, &key) < 0) {
             send(client_socket, "error", sizeof("error"), 0);
             atomic_store(&thread_return_value, -1);
             return;
         };
+        printf("Received key %d\n", key);
 
         // receive tuple values from socket
         struct tuple temp_tuple;
         temp_tuple.key = key;
-
-        socket_recv(client_socket, temp_tuple.value1, &temp_tuple.value2, &temp_tuple.value3);
+        printf("Receiving tuple items\n");
+        socket_recv(client_socket, temp_tuple.value1, &temp_tuple.N_Value2, temp_tuple.V_Value2);
+        printf("Received tuple items\n");
 
         if (exists(key) == 1) {
             atomic_store(&thread_return_value, -1);
@@ -260,8 +277,8 @@ void petition_handler(void *socket) {
             return;
         };
         char value1[256];
-        int value2;
-        double value3;
+        int N_Value2;
+        double V_Value2[32];
 
         if (exists(key) == 0) {
             atomic_store(&thread_return_value, -1);
@@ -270,7 +287,7 @@ void petition_handler(void *socket) {
         }
 
         // if error getting value, raise error
-        if (get_value(key, value1, &value2, &value3) < 0) {
+        if (get_value(key, value1, &N_Value2, V_Value2) < 0) {
             atomic_store(&thread_return_value, 2);
             send(client_socket, "error", sizeof("error"), 0);
             return;
@@ -278,7 +295,7 @@ void petition_handler(void *socket) {
         send(client_socket, "noerror", sizeof("noerror"), 0);
 
         // send tuple item to socket
-        socket_send(client_socket, value1, &value2, &value3);
+        socket_send(client_socket, value1, &N_Value2, V_Value2);
 
         atomic_store(&thread_return_value, 0);
         printf("Value retrieved correctly\n");
@@ -321,12 +338,12 @@ void petition_handler(void *socket) {
         
         // receive new tuple items from client
         char value1[256];
-        int value2;
-        double value3;
-        socket_recv(client_socket, value1, &value2, &value3);
+        int N_Value2;
+        double V_Value2[32];
+        socket_recv(client_socket, value1, &N_Value2, V_Value2);
 
         // attempt to modify tuple
-        if (modify_value(key, value1, value2, value3) < 0) {
+        if (modify_value(key, value1, N_Value2, V_Value2) < 0) {
             printf("modify_value < 0\n");
             atomic_store(&thread_return_value, 2);
             send(client_socket, "error", sizeof("error"), 0);
